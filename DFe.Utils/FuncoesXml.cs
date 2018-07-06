@@ -57,7 +57,7 @@ namespace DFe.Utils
         public static string ClasseParaXmlString<T>(T objeto)
         {
             XElement xml;
-            var keyNomeClasseEmUso = typeof(T).Name;
+            var keyNomeClasseEmUso = typeof(T).FullName;
             var ser = BuscarNoCache(keyNomeClasseEmUso, typeof(T));
 
             using (var memory = new MemoryStream())
@@ -100,7 +100,7 @@ namespace DFe.Utils
         /// <returns></returns>
         public static T XmlStringParaClasse<T>(string input) where T : class
         {
-            var keyNomeClasseEmUso = typeof(T).Name;
+            var keyNomeClasseEmUso = typeof(T).FullName;
             var ser = BuscarNoCache(keyNomeClasseEmUso, typeof(T));
 
             using (var sr = new StringReader(input))
@@ -135,7 +135,7 @@ namespace DFe.Utils
                 throw new FileNotFoundException("Arquivo " + arquivo + " não encontrado!");
             }
 
-            var keyNomeClasseEmUso = typeof(T).Name;
+            var keyNomeClasseEmUso = typeof(T).FullName;
             var serializador = BuscarNoCache(keyNomeClasseEmUso, typeof(T));
             var stream = new FileStream(arquivo, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             try

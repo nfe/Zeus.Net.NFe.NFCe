@@ -4,7 +4,6 @@ using System.Xml;
 
 namespace NFe.Wsdl.Evento.SVAN
 {
-
     public class RecepcaoEvento4SVAN : NFeRecepcaoEvento4SoapClient, INfeServico
     {
         public RecepcaoEvento4SVAN(string url, X509Certificate certificado, int timeOut)
