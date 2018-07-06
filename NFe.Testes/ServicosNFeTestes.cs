@@ -197,7 +197,7 @@ namespace NFe.Testes
 
             try
             {
-                var result = servico.RecepcaoEvento(1, new List<NFeClasses.Servicos.Evento.evento>(), ServicoNFe.RecepcaoEventoEpec);
+                var result = servico.RecepcaoEvento(1, new List<NFeClasses.Servicos.Evento.evento>(), ServicoNFe.RecepcaoEventoEpec, VersaoServico.ve310);
             }
             catch (Exception ex)
             {

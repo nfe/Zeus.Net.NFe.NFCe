@@ -79,6 +79,7 @@ using DFe.Classes.Extensoes;
 using NFe.Danfe.Nativo.NFCe;
 using NFe.Utils.Excecoes;
 using NFeZeus = NFe.Classes.NFe;
+using NFe.Utils.Tributacao.Federal;
 
 namespace NFe.AppTeste
 {
@@ -268,43 +269,6 @@ namespace NFe.AppTeste
             }
         }
 
-        private void BtnCriareEnviar2_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                #region Cria e Envia NFe
-
-                var numero = Funcoes.InpuBox(this, "Criar e Enviar NFe", "Número da Nota:");
-                if (string.IsNullOrEmpty(numero)) throw new Exception("O Número deve ser informado!");
-
-                var lote = Funcoes.InpuBox(this, "Criar e Enviar NFe", "Id do Lote:");
-                if (string.IsNullOrEmpty(lote)) throw new Exception("A Id do lote deve ser informada!");
-
-                _nfe = GetNf(Convert.ToInt32(numero), _configuracoes.CfgServico.ModeloDocumento, _configuracoes.CfgServico.VersaoNfeRecepcao);
-                _nfe.Assina(); //não precisa validar aqui, pois o lote será validado em ServicosNFe.NFeAutorizacao
-                var servicoNFe = new ServicosNFe(_configuracoes.CfgServico);
-                var retornoEnvio = servicoNFe.NfeRecepcao(Convert.ToInt32(lote), new List<Classes.NFe> {_nfe});
-
-                TrataRetorno(retornoEnvio);
-
-                #endregion
-            }
-            catch (ComunicacaoException ex)
-            {
-                //Faça o tratamento de contingência OffLine aqui.
-                Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-            catch (ValidacaoSchemaException ex)
-            {
-                Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-        }
-
-        private void BtnGerarNfe2_Click(object sender, RoutedEventArgs e)
-        {
-            GeranNfe(_configuracoes.CfgServico.VersaoNfeRecepcao, _configuracoes.CfgServico.ModeloDocumento);
-        }
-
         private void GeranNfe(VersaoServico versaoServico, ModeloDocumento modelo)
         {
             try
@@ -358,36 +322,6 @@ namespace NFe.AppTeste
             }
         }
 
-        private void BtnConsultarReciboLote2_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                #region Consulta Recibo de lote
-
-                var recibo = Funcoes.InpuBox(this, "Consultar processamento de lote de NF-e", "Número do recibo:");
-                if (string.IsNullOrEmpty(recibo)) throw new Exception("O número do recibo deve ser informado!");
-                var servicoNFe = new ServicosNFe(_configuracoes.CfgServico);
-                var retornoRecibo = servicoNFe.NfeRetRecepcao(recibo);
-
-                TrataRetorno(retornoRecibo);
-
-                #endregion
-            }
-            catch (ComunicacaoException ex)
-            {
-                Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-            catch (ValidacaoSchemaException ex)
-            {
-                Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                if (!string.IsNullOrEmpty(ex.Message))
-                    Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-        }
-
         private void BtnCriareEnviar3_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -407,7 +341,7 @@ namespace NFe.AppTeste
                     _configuracoes.CfgServico.VersaoNFeAutorizacao == VersaoServico.ve400)
                 {
                     _nfe.infNFeSupl = new infNFeSupl();
-                    _nfe.infNFeSupl.urlChave = _nfe.infNFeSupl.ObterUrl(_configuracoes.CfgServico.tpAmb, _configuracoes.CfgServico.cUF, TipoUrlConsultaPublica.UrlQrCode);
+                    _nfe.infNFeSupl.urlChave = _nfe.infNFeSupl.ObterUrl(_configuracoes.CfgServico.tpAmb, _configuracoes.CfgServico.cUF, TipoUrlConsultaPublica.UrlConsulta);
                 }
 
                 _nfe.Assina(); //não precisa validar aqui, pois o lote será validado em ServicosNFe.NFeAutorizacao
@@ -430,7 +364,7 @@ namespace NFe.AppTeste
                 }
 
                 var servicoNFe = new ServicosNFe(_configuracoes.CfgServico);
-                var retornoEnvio = servicoNFe.NFeAutorizacao(Convert.ToInt32(lote), IndicadorSincronizacao.Assincrono, new List<Classes.NFe> {_nfe}, false/*Envia a mensagem compactada para a SEFAZ*/);
+                var retornoEnvio = servicoNFe.NFeAutorizacao(Convert.ToInt32(lote), IndicadorSincronizacao.Assincrono, new List<Classes.NFe> {_nfe}, true/*Envia a mensagem compactada para a SEFAZ*/);
                 //Para consumir o serviço de forma síncrona, use a linha abaixo:
                 //var retornoEnvio = servicoNFe.NFeAutorizacao(Convert.ToInt32(lote), IndicadorSincronizacao.Sincrono, new List<Classes.NFe> { _nfe }, true/*Envia a mensagem compactada para a SEFAZ*/);
 
@@ -1134,14 +1068,18 @@ namespace NFe.AppTeste
                 imposto = new imposto
                 {
                     vTotTrib = 0.17m,
+
                     ICMS = new ICMS
                     {
+                        //Se você já tem os dados de toda a tributação persistida no banco em uma única tabela, utilize a linha comentada abaixo para preencher as tags do ICMS
+                        //TipoICMS = ObterIcmsBasico(crt),
+
+                        //Caso você resolva utilizar método ObterIcmsBasico(), comente esta proxima linha
                         TipoICMS =
                             crt == CRT.SimplesNacional
                                 ? InformarCSOSN(Csosnicms.Csosn102)
                                 : InformarICMS(Csticms.Cst00, VersaoServico.ve310)
                     },
-                    //Se você tem os dados de toda a tributação persistida no banco em uma única tabela, utilize a classe NFe.Utils.Tributacao.Estadual.ICMSGeral para obter os dados básicos. Veja o método ObterIcmsBasico
 
                     //ICMSUFDest = new ICMSUFDest()
                     //{
@@ -1154,21 +1092,41 @@ namespace NFe.AppTeste
                     //    vICMSUFDest = 0,
                     //    vICMSUFRemet = 0
                     //},
-                    COFINS =
-                        new COFINS
-                        {
-                            TipoCOFINS = new COFINSOutr {CST = CSTCOFINS.cofins99, pCOFINS = 0, vBC = 0, vCOFINS = 0}
-                        },
-                    PIS = new PIS {TipoPIS = new PISOutr {CST = CSTPIS.pis99, pPIS = 0, vBC = 0, vPIS = 0}}
+
+                    COFINS = new COFINS
+                    {
+                        //Se você já tem os dados de toda a tributação persistida no banco em uma única tabela, utilize a linha comentada abaixo para preencher as tags do COFINS
+                        //TipoCOFINS = ObterCofinsBasico(),
+
+                        //Caso você resolva utilizar método ObterCofinsBasico(), comente esta proxima linha
+                        TipoCOFINS = new COFINSOutr {CST = CSTCOFINS.cofins99, pCOFINS = 0, vBC = 0, vCOFINS = 0}
+                    },
+                    
+                    PIS = new PIS
+                    {
+                        //Se você já tem os dados de toda a tributação persistida no banco em uma única tabela, utilize a linha comentada abaixo para preencher as tags do PIS
+                        //TipoPIS = ObterPisBasico(),
+
+                        //Caso você resolva utilizar método ObterPisBasico(), comente esta proxima linha
+                        TipoPIS = new PISOutr {CST = CSTPIS.pis99, pPIS = 0, vBC = 0, vPIS = 0}
+                    }
                 }
             };
 
             if (modelo == ModeloDocumento.NFe) //NFCe não aceita grupo "IPI"
+            {
                 det.imposto.IPI = new IPI()
                 {
                     cEnq = 999,
-                    TipoIPI = new IPITrib() {CST = CSTIPI.ipi00, pIPI = 5, vBC = 1, vIPI = 0.05m}
+
+                    //Se você já tem os dados de toda a tributação persistida no banco em uma única tabela, utilize a linha comentada abaixo para preencher as tags do IPI
+                    //TipoIPI = ObterIPIBasico(),
+
+                    //Caso você resolva utilizar método ObterIPIBasico(), comente esta proxima linha
+                    TipoIPI = new IPITrib() { CST = CSTIPI.ipi00, pIPI = 5, vBC = 1, vIPI = 0.05m }
                 };
+            }
+            
             //det.impostoDevol = new impostoDevol() { IPI = new IPIDevolvido() { vIPIDevol = 10 }, pDevol = 100 };
 
             return det;
@@ -1248,7 +1206,7 @@ namespace NFe.AppTeste
             var icmsGeral = new ICMSGeral
             {
                 orig = OrigemMercadoria.OmNacional,
-                CST = Csticms.Cst20,
+                CST = Csticms.Cst00,
                 modBC = DeterminacaoBaseIcms.DbiValorOperacao,
                 vBC = 1.1m,
                 pICMS = 18,
@@ -1256,6 +1214,50 @@ namespace NFe.AppTeste
                 motDesICMS = MotivoDesoneracaoIcms.MdiTaxi
             };
             return icmsGeral.ObterICMSBasico(crt);
+        }
+
+        private PISBasico ObterPisBasico()
+        {
+            //Leia os dados de seu banco de dados e em seguida alimente o objeto PISGeral, como no exemplo abaixo.
+            var pisGeral = new PISGeral()
+            {
+                CST = CSTPIS.pis01,
+                vBC = 1.1m,
+                pPIS = 1.65m,
+                vPIS = 0.01m,
+                vAliqProd = 0
+            };
+
+            return pisGeral.ObterPISBasico();
+        }
+
+        private COFINSBasico ObterCofinsBasico()
+        {
+            //Leia os dados de seu banco de dados e em seguida alimente o objeto COFINSGeral, como no exemplo abaixo.
+            var cofinsGeral = new COFINSGeral()
+            {
+                CST = CSTCOFINS.cofins01,
+                vBC = 1.1m,
+                pCOFINS = 1.65m,
+                vCOFINS = 0.01m,
+                vAliqProd = 0
+            };
+
+            return cofinsGeral.ObterCOFINSBasico();
+        }
+
+        private IPIBasico ObterIPIBasico()
+        {
+            //Leia os dados de seu banco de dados e em seguida alimente o objeto IPIGeral, como no exemplo abaixo.
+            var ipiGeral = new IPIGeral()
+            {
+                CST = CSTIPI.ipi01,
+                vBC = 1.1m,
+                pIPI = 5m,
+                vIPI = 0.05m
+            };
+
+            return ipiGeral.ObterIPIBasico();
         }
 
         protected virtual ICMSBasico InformarCSOSN(Csosnicms CST)
@@ -1285,7 +1287,6 @@ namespace NFe.AppTeste
             var icmsTot = new ICMSTot
             {
                 vProd = produtos.Sum(p => p.prod.vProd),
-                vNF = produtos.Sum(p => p.prod.vProd) - produtos.Sum(p => p.prod.vDesc ?? 0),
                 vDesc = produtos.Sum(p => p.prod.vDesc ?? 0),
                 vTotTrib = produtos.Sum(p => p.imposto.vTotTrib ?? 0),
             };
@@ -1321,6 +1322,9 @@ namespace NFe.AppTeste
                 //Outros Ifs aqui, caso vá usar as classes ICMS00, ICMS10 para totalizar
             }
 
+            //** Regra de validação W16-10 que rege sobre o Total da NF **//
+            icmsTot.vNF = Convert.ToDecimal(icmsTot.vProd - icmsTot.vDesc - icmsTot.vICMSDeson + icmsTot.vST + icmsTot.vFCPST + icmsTot.vFrete + icmsTot.vSeg + icmsTot.vOutro + icmsTot.vII + icmsTot.vIPI + icmsTot.vIPIDevol);
+
             var t = new total {ICMSTot = icmsTot};
             return t;
         }
@@ -1351,14 +1355,14 @@ namespace NFe.AppTeste
 
         protected virtual cobr GetCobranca(ICMSTot icmsTot)
         {
-            var valorParcela = Valor.Arredondar(icmsTot.vProd/2, 2);
+            var valorParcela = Valor.Arredondar(icmsTot.vNF / 2, 2);
             var c = new cobr
             {
-                fat = new fat {nFat = "12345678910", vLiq = icmsTot .vProd},
+                fat = new fat { nFat = "12345678910", vLiq = icmsTot.vNF, vOrig = icmsTot.vNF, vDesc = 0m },
                 dup = new List<dup>
                 {
-                    new dup {nDup = "12345678", vDup = valorParcela},
-                    new dup {nDup = "987654321", vDup = icmsTot.vProd - valorParcela}
+                    new dup {nDup = "001", dVenc = DateTime.Now.AddDays(30), vDup = valorParcela},
+                    new dup {nDup = "002", dVenc = DateTime.Now.AddDays(60), vDup = icmsTot.vNF - valorParcela}
                 }
             };
 
@@ -1367,14 +1371,14 @@ namespace NFe.AppTeste
 
         protected virtual List<pag> GetPagamento(ICMSTot icmsTot, VersaoServico versao)
         {
-            var valorPagto = Valor.Arredondar(icmsTot.vProd / 2, 2);
+            var valorPagto = Valor.Arredondar(icmsTot.vNF / 2, 2);
 
             if (versao != VersaoServico.ve400) // difernte de versão 4 retorna isso
             {
                 var p = new List<pag>
                 {
                     new pag {tPag = FormaPagamento.fpDinheiro, vPag = valorPagto},
-                    new pag {tPag = FormaPagamento.fpCheque, vPag = icmsTot.vProd - valorPagto}
+                    new pag {tPag = FormaPagamento.fpCheque, vPag = icmsTot.vNF - valorPagto}
                 };
                 return p;
             }
@@ -1384,15 +1388,14 @@ namespace NFe.AppTeste
             var p4 = new List<pag>
             {
                 //new pag {detPag = new detPag {tPag = FormaPagamento.fpDinheiro, vPag = valorPagto}},
-                //new pag {detPag = new detPag {tPag = FormaPagamento.fpCheque, vPag = icmsTot.vProd - valorPagto}}
+                //new pag {detPag = new detPag {tPag = FormaPagamento.fpCheque, vPag = icmsTot.vNF - valorPagto}}
                 new pag
                 {
                     detPag = new List<detPag>
                     {
                         new detPag {tPag = FormaPagamento.fpDuplicataMercantil, vPag = valorPagto},
-                        new detPag {tPag = FormaPagamento.fpDuplicataMercantil, vPag = icmsTot.vProd - valorPagto}
-                    },
-                    vTroco = 0.50m
+                        new detPag {tPag = FormaPagamento.fpDuplicataMercantil, vPag = icmsTot.vNF - valorPagto}
+                    }                    
                 }
             };
 
@@ -1441,46 +1444,7 @@ namespace NFe.AppTeste
         }
 
         #endregion
-
-        private void BtnDownlodNfe_Click(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                #region Download Nfe
-
-                var cnpj = Funcoes.InpuBox(this, "Download Nfe", "CNPJ do destinatário da NFe:");
-                if (string.IsNullOrEmpty(cnpj)) throw new Exception("O CNPJ deve ser informado!");
-                if (cnpj.Length != 14) throw new Exception("O CNPJ deve conter 14 caracteres!");
-
-                var chave = Funcoes.InpuBox(this, "Download Nfe", "Chave da NFe:");
-                if (string.IsNullOrEmpty(chave)) throw new Exception("A Chave deve ser informada!");
-                if (chave.Length != 44) throw new Exception("Chave deve conter 44 caracteres!");
-
-                var servicoNFe = new ServicosNFe(_configuracoes.CfgServico);
-                var retornoDownload = servicoNFe.NfeDownloadNf(cnpj, new List<string>() {chave});
-
-                //Se desejar consultar mais de uma chave, use o serviço como indicado abaixo. É permitido consultar até 10 nfes de uma vez.
-                //Leia atentamente as informações do consumo deste serviço constantes no manual
-                //var retornoDownload = servicoNFe.NfeDownloadNf(cnpj, new List<string>() { "28150707703290000189550010000009441000029953", "28150707703290000189550010000009431000029948" });
-
-                TrataRetorno(retornoDownload);
-
-                #endregion
-            }
-            catch (ComunicacaoException ex)
-            {
-                Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-            catch (ValidacaoSchemaException ex)
-            {
-                Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-            catch (Exception ex)
-            {
-                if (!string.IsNullOrEmpty(ex.Message))
-                    Funcoes.Mensagem(ex.Message, "Erro", MessageBoxButton.OK);
-            }
-        }
+        
 
         private void BtnArquivoCertificado_Click(object sender, RoutedEventArgs e)
         {
